@@ -13,12 +13,9 @@ class settings():
     #self.log("Hue: reading settings")
     self.bridge_ip             = __addon__.getSetting("bridge_ip")
     self.bridge_user           = __addon__.getSetting("bridge_user")
-    self.light_1               = __addon__.getSetting("light_1") == "true"
-    self.light_2               = __addon__.getSetting("light_2") == "true"
-    self.light_3               = __addon__.getSetting("light_3") == "true"
-    self.light_4               = __addon__.getSetting("light_4") == "true"
-    self.light_5               = __addon__.getSetting("light_5") == "true"
-    self.mode                  = int(__addon__.getSetting("mode"))
+    self.group_1               = __addon__.getSetting("group_1") == "true"
+    self.group_2               = __addon__.getSetting("group_2") == "true"
+    self.group_3               = __addon__.getSetting("group_3") == "true"
     self.misc_initialflash     = __addon__.getSetting("misc_initialflash") == "true"
 
   def update(self, **kwargs):

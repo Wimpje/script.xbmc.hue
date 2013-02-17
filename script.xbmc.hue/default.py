@@ -62,8 +62,8 @@ class Hue:
       self.run()
 
   def flash_lights(self):
-    for light in self.used_lights():
-        flash_light(self.settings.bridge_ip, self.settings.bridge_user, light)
+    for group in self.used_groups():
+        flash_group(self.settings.bridge_ip, self.settings.bridge_user, group)
     
   def _parse_argv( self ):
     try:
@@ -80,26 +80,22 @@ class Hue:
       self.connected = True
 
   def dim_lights(self):
-    for light in self.used_lights():
-        dim_light(self.settings.bridge_ip, self.settings.bridge_user, light)
+    for group in self.used_groups():
+        dim_group(self.settings.bridge_ip, self.settings.bridge_user, group)
 
   def brighter_lights(self):
-    for light in self.used_lights():
-        brighter_light(self.settings.bridge_ip, self.settings.bridge_user, light)
+    for group in self.used_groups():
+        brighter_group(self.settings.bridge_ip, self.settings.bridge_user, group)
 
-  def used_lights(self):
-    lights = []
-    if self.settings.light_1:
-      lights.append(1)
-    if self.settings.light_2:
-      lights.append(2)
-    if self.settings.light_3:
-      lights.append(3)    
-    if self.settings.light_4:
-      lights.append(4)
-    if self.settings.light_5:
-      lights.append(5)
-    return lights
+  def used_groups(self):
+    groups = []
+    if self.settings.group_1:
+      groups.append(1)
+    if self.settings.group_2:
+      groups.append(2)
+    if self.settings.group_3:
+      groups.append(3)
+    return groups
   
   def run(self):
     self.settings.readxml()

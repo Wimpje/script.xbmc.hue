@@ -75,10 +75,14 @@ def request_url_put(url, data):
   request.get_method = lambda: 'PUT'
   url = opener.open(request)
 
-def set_light(bridge_ip, bridge_user, light, data):
-  request_url_put("http://%s/api/%s/lights/%s/state" % (bridge_ip, bridge_user, light), data=data)
+def set_group(bridge_ip, bridge_user, group, data):
+  request_url_put("http://%s/api/%s/groups/%s/action" % (bridge_ip, bridge_user, group), data=data)
+  
+def set_group(bridge_ip, bridge_user, group, data):
+  request_url_put("http://%s/api/%s/groups/%s/action" % (bridge_ip, bridge_user, group), data=data)
 
 def set_light2(bridge_ip, bridge_user, light, hue, sat, bri):
+    #this one is not used atm
     data = json.dumps({
         "on": True,
         "hue": hue,
@@ -90,17 +94,17 @@ def set_light2(bridge_ip, bridge_user, light, hue, sat, bri):
 
     request_url_put("http://%s/api/%s/lights/%s/state" % (bridge_ip, bridge_user, light), data=data)
 
-def flash_light(bridge_ip, bridge_user, light):
-  dimmed = '{"on":true,"bri":10,"transitiontime":4}'
-  set_light(bridge_ip, bridge_user, light, dimmed)
-  on = '{"on":true,"bri":255,"transitiontime":4}'
-  set_light(bridge_ip, bridge_user, light, on)
+def flash_group(bridge_ip, bridge_user, group):
+  dimmed = '{"on":true,"bri":80,"transitiontime":2}'
+  set_group(bridge_ip, bridge_user, group, dimmed)
+  on = '{"on":true,"bri":255,"transitiontime":2}'
+  set_group(bridge_ip, bridge_user, group, on)
 
-def dim_light(bridge_ip, bridge_user, light):
-  dimmed = '{"on":true,"bri":10,"transitiontime":4}'
-  set_light(bridge_ip, bridge_user, light, dimmed)
+def dim_group(bridge_ip, bridge_user, group):
+  dimmed = '{"on":true,"bri":80,"transitiontime":4}'
+  set_group(bridge_ip, bridge_user, group, dimmed)
 
-def brighter_light(bridge_ip, bridge_user, light):
+def brighter_group(bridge_ip, bridge_user, group):
   on = '{"on":true,"bri":255,"transitiontime":4}'
-  set_light(bridge_ip, bridge_user, light, on)
+  set_group(bridge_ip, bridge_user, group, on)
   
