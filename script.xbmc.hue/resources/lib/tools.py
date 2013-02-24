@@ -1,5 +1,4 @@
-import urllib
-import urllib2
+import httplib
 import time
 import sys
 import os
@@ -48,38 +47,34 @@ def register_user(hue_ip):
   device = "xbmc-player"
   data = '{"username": "%s", "devicetype": "%s"}' % (username, device)
 
-  # use urllib2 as it's included in Python
-  response = urllib2.urlopen('http://%s/api' % hue_ip, data)
-  response = response.read()
+  response = request('GET', 'http://%s/api' % hue_ip, data)
   while "link button not pressed" in response:
     notify("Bridge discovery", "press link button on bridge")
-    response = urllib2.urlopen('http://%s/api' % hue_ip, data)
-    response = response.read()  
+    response = request('GET','http://%s/api' % hue_ip, data)
     time.sleep(3)
 
   return username
 
+def get_state(bridge_ip, bridge_user):
+  return request('GET','http://%s/api/%s' % (bridge_ip, bridge_user))
+
 def test_connection(bridge_ip, bridge_user):
-  response = urllib2.urlopen('http://%s/api/%s/config' % (bridge_ip, bridge_user))
-  response = response.read()
+  response = request('GET','http://%s/api/%s/config' % (bridge_ip, bridge_user))
   if response.find("name"):
     return True
   else:
     return False
 
-def request_url_put(url, data):
-  # Unfortunately, this request will take ~1s on the bridge,
-  #  ruining the ambilight effect
-  opener = urllib2.build_opener(urllib2.HTTPHandler)
-  request = urllib2.Request(url, data=data)
-  request.get_method = lambda: 'PUT'
-  url = opener.open(request)
+def request(self,  mode = 'GET', address = None, data = None):
+  connection = httplib.HTTPConnection(self.ip)
+  if mode == 'GET' or mode == 'DELETE':
+      connection.request(mode, address)
+  if mode == 'PUT' or mode == 'POST':
+      connection.request(mode, address, data)
 
-def set_group(bridge_ip, bridge_user, group, data):
-  request_url_put("http://%s/api/%s/groups/%s/action" % (bridge_ip, bridge_user, group), data=data)
-  
-def set_group(bridge_ip, bridge_user, group, data):
-  request_url_put("http://%s/api/%s/groups/%s/action" % (bridge_ip, bridge_user, group), data=data)
+  result = connection.getresponse()
+  connection.close()
+  return json.loads(result.read())
 
 def set_light2(bridge_ip, bridge_user, light, hue, sat, bri):
     #this one is not used atm
@@ -91,20 +86,5 @@ def set_light2(bridge_ip, bridge_user, light, hue, sat, bri):
         #"bri": 254,
         #"transitiontime":0
     })
+    request("GET","http://%s/api/%s/lights/%s/state" % (bridge_ip, bridge_user, light), data=data)
 
-    request_url_put("http://%s/api/%s/lights/%s/state" % (bridge_ip, bridge_user, light), data=data)
-
-def flash_group(bridge_ip, bridge_user, group):
-  dimmed = '{"on":true,"bri":80,"transitiontime":2}'
-  set_group(bridge_ip, bridge_user, group, dimmed)
-  on = '{"on":true,"bri":255,"transitiontime":2}'
-  set_group(bridge_ip, bridge_user, group, on)
-
-def dim_group(bridge_ip, bridge_user, group):
-  dimmed = '{"on":true,"bri":80,"transitiontime":4}'
-  set_group(bridge_ip, bridge_user, group, dimmed)
-
-def brighter_group(bridge_ip, bridge_user, group):
-  on = '{"on":true,"bri":255,"transitiontime":4}'
-  set_group(bridge_ip, bridge_user, group, on)
-  

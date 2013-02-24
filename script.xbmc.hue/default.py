@@ -27,8 +27,12 @@ log("Service started")
 class Hue:
   params = None
   connected = None
-  last_state = None
   settings = None
+  state = {}
+  lights = {}
+  groups = {}
+  used_groups = {}
+
 
   def __init__(self, settings):
     self._parse_argv()
@@ -61,10 +65,6 @@ class Hue:
         self.flash_lights()
       self.run()
 
-  def flash_lights(self):
-    for group in self.used_groups():
-        flash_group(self.settings.bridge_ip, self.settings.bridge_user, group)
-    
   def _parse_argv( self ):
     try:
         self.params = dict(arg.split("=") for arg in sys.argv[1].split("&"))
@@ -80,25 +80,98 @@ class Hue:
       self.connected = True
 
   def dim_lights(self):
-    for group in self.used_groups():
-        dim_group(self.settings.bridge_ip, self.settings.bridge_user, group)
+    for group in self.used_groups:
+        group.dim()
 
-  def brighter_lights(self):
-    for group in self.used_groups():
-        brighter_group(self.settings.bridge_ip, self.settings.bridge_user, group)
+  def undim_lights(self):
+    for group in self.used_groups:
+        group.undim()
+
+  def flash_lights(self):
+    for group in self.used_groups:
+        group.flash()    
 
   def used_groups(self):
+    #todo: auto detect groups and add to settings
+    #this function can be done nicer ;)
     groups = []
     if self.settings.group_1:
-      groups.append(1)
+      group_from_state = self.state["groups"]["1"]
+      if(group_from_state == None):
+        log("Group 1 has no state")
+      groups.append(HueGroup(1, group_from_state))
     if self.settings.group_2:
-      groups.append(2)
+      group_from_state = self.state["groups"]["2"]
+      if(group_from_state == None):
+        log("Group 2 has no state")
+      groups.append(HueGroup(2, group_from_state))
     if self.settings.group_3:
-      groups.append(3)
+      group_from_state = self.state["groups"]["3"]
+      if(group_from_state == None):
+        log("Group 3 has no state")
+      groups.append(HueGroup(3, group_from_state))
     return groups
   
   def run(self):
     self.settings.readxml()
+    #initialize current state of the Hue (for later)
+    state = get_state(self.settings.bridge_ip, self.settings.bridge_user)
+    self.used_groups = used_groups()
+
+class HueLight:
+  state = {}
+  id = None
+
+  def __init__(self, id, state):
+    self.state = state;
+    self.id = id
+
+class HueGroup:
+  #TODO: Can be abstracted together with HueLight as one HueBlob thingy, very similar...
+  state = {}
+  id = None
+  brightness_before_dim = None
+  
+  def __init__(self, id, state = None):
+    if(state == None):
+      get_current_state()
+    else:
+      self.state = state
+    self.id = id
+
+  def get_current_state(self): 
+    self.state = request()
+
+  def dim(self, transition_time = 4):
+    get_current_state()
+    self.brightness_before_dim = self.state["action"]["bri"]
+    dim = json.dumps({
+      "on":True,
+      "bri":min(self.brightness_before_dim - 80, 80),
+      "transitiontime":transition_time
+      })
+    self.action(dim)
+
+  def undim(self, transition_time = 4):
+    orig_brightness = 254
+    if(self.brightness_before_dim != None):
+      orig_brightness = self.brightness_before_dim 
+    restore = json.dumps({
+        "on":True,
+        "bri":orig_brightness ,
+        "transitiontime":4
+        })
+    self.action(restore)
+
+  def flash(self):
+    self.dim(2)
+    self.undim(2)
+
+  def request(self):
+    request("GET","http://%s/api/%s/groups/%s" % (settings.bridge_ip, settings.bridge_user, self.id))
+  
+  def action(self, data):
+    request("PUT","http://%s/api/%s/groups/%s/action" % (settings.bridge_ip, settings.bridge_user, self.id), data)
 
 class HuePlayer( xbmc.Player ):
   hue = None
@@ -115,7 +188,7 @@ class HuePlayer( xbmc.Player ):
 
   def onPlayBackPaused( self ):
     log( "Hue pause" )
-    self.hue.brighter_lights()
+    self.hue.undim_lights()
   
   def onPlayBackResumed( self ):
     log( "Hue resume" )
@@ -124,12 +197,12 @@ class HuePlayer( xbmc.Player ):
   def onPlayBackEnded( self ):
     # Will be called when xbmc stops playing a file
     log( "Hue undim - end" )
-    self.hue.brighter_lights()
+    self.hue.undim_lights()
 
   def onPlayBackStopped( self ):
     # Will be called when user stops xbmc playing a file
     log( "Hue undim - stop" )
-    self.hue.brighter_lights()
+    self.hue.undim_lights()
 
 if ( __name__ == "__main__" ):
   settings = settings()
