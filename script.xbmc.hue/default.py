@@ -56,11 +56,18 @@ class Hue:
         self.test_connection()
       else:
         notify("Bridge discovery", "Failed. Could not find bridge.")
+    elif self.params['action'] == "test_connection":
+      self.test_connection()
     else:
       # not yet implemented
       log("unimplemented action call: %s" % self.params['action'])
+   
 
     if self.connected:
+      #initialize current state of the Hue (for later)
+      self.state = get_state(self.settings.bridge_ip, self.settings.bridge_user)
+      log(self.state)
+      self.used_groups = self.used_groups()
       if self.settings.misc_initialflash:
         self.flash_lights()
       self.run()
@@ -99,52 +106,47 @@ class Hue:
       group_from_state = self.state["groups"]["1"]
       if(group_from_state == None):
         log("Group 1 has no state")
-      groups.append(HueGroup(1, group_from_state))
+      groups.append(HueGroup(1, "group"))
     if self.settings.group_2:
       group_from_state = self.state["groups"]["2"]
       if(group_from_state == None):
         log("Group 2 has no state")
-      groups.append(HueGroup(2, group_from_state))
+      groups.append(HueGroup(2, "group"))
     if self.settings.group_3:
       group_from_state = self.state["groups"]["3"]
       if(group_from_state == None):
         log("Group 3 has no state")
-      groups.append(HueGroup(3, group_from_state))
+      groups.append(HueGroup(3, "group"))
     return groups
   
   def run(self):
     self.settings.readxml()
-    #initialize current state of the Hue (for later)
-    state = get_state(self.settings.bridge_ip, self.settings.bridge_user)
-    self.used_groups = used_groups()
 
-class HueLight:
+class HueThing:
   state = {}
   id = None
-
-  def __init__(self, id, state):
-    self.state = state;
-    self.id = id
-
-class HueGroup:
-  #TODO: Can be abstracted together with HueLight as one HueBlob thingy, very similar...
-  state = {}
-  id = None
+  type = ""
   brightness_before_dim = None
   
-  def __init__(self, id, state = None):
-    if(state == None):
-      get_current_state()
-    else:
-      self.state = state
+  def __init__(self, id, type = ""):
+    self.type = type + "s" #groups or lights, but type is single... a bit iffy ;)
+    self.get_current_state()
     self.id = id
+    log("init huething %s, %s " % (self.id, json.dumps(self.state)))
 
   def get_current_state(self): 
-    self.state = request()
+    if type == "":
+       log("Error, this HueThing doesn't have a type")
+
+    self.state = request("GET",url=settings.bridge_ip, action="/api/%s/%s/%s" % (settings.bridge_user, self.type, self.id))
+
+  def get_brightness(self):
+    log("get_brightness called, but not implemented by subclass")
+    pass
 
   def dim(self, transition_time = 4):
-    get_current_state()
-    self.brightness_before_dim = self.state["action"]["bri"]
+    self.get_current_state()
+    self.brightness_before_dim = self.get_brightness()
     dim = json.dumps({
       "on":True,
       "bri":min(self.brightness_before_dim - 80, 80),
@@ -167,11 +169,29 @@ class HueGroup:
     self.dim(2)
     self.undim(2)
 
+class HueLight(HueThing):
+  def get_brightness(self):
+    return self.state["state"]["bri"]
+
   def request(self):
-    request("GET","http://%s/api/%s/groups/%s" % (settings.bridge_ip, settings.bridge_user, self.id))
+    request("GET",settings.bridge_ip, action="/api/%s/lights/%s" % (settings.bridge_user, self.id))
   
   def action(self, data):
-    request("PUT","http://%s/api/%s/groups/%s/action" % (settings.bridge_ip, settings.bridge_user, self.id), data)
+    request("PUT",settings.bridge_ip, action="/api/%s/lights/%s/action" % (settings.bridge_user, self.id), data=data)
+
+
+class HueGroup(HueThing):
+  def get_brightness(self):
+    log("getbrightness before" + json.dumps(self.state))
+    self.get_current_state()
+    log("getbrightness after" + json.dumps(self.state))
+    return self.state["action"]["bri"]
+
+  def request(self):
+    request("GET",settings.bridge_ip, action= "/api/%s/groups/%s" % (settings.bridge_user, self.id))
+  
+  def action(self, data):
+    request("PUT",settings.bridge_ip, action="/api/%s/groups/%s/action" % (settings.bridge_user, self.id), data=data)
 
 class HuePlayer( xbmc.Player ):
   hue = None
